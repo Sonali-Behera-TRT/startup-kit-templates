@@ -1,9 +1,6 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
-
 Description: SASKV5 VPC + ElastiCache
-
 
 Parameters:
 
@@ -158,6 +155,9 @@ Resources:
         ELBIngressPort: !Ref ELBIngressPort
         AppIngressPort: !Ref AppIngressPort
         SingleNatGateway: !If [ IsProd, false, true ]
+      Tags:
+        - Key: YOUR_TAG_KEY
+          Value: YOUR_TAG_VALUE
 
   ElastiCacheStack:
     Type: AWS::CloudFormation::Stack
@@ -166,6 +166,9 @@ Resources:
       Parameters:
         NetworkStackName: !GetAtt VpcStack.Outputs.Name
         ClusterName: !Ref ClusterName
+      Tags:
+        - Key: YOUR_TAG_KEY
+          Value: YOUR_TAG_VALUE
     DependsOn: VpcStack
 
 Outputs:

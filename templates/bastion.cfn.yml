@@ -75,7 +75,6 @@ Mappings:
     eu-west-3:
       AMI: ami-0ebc281c20e89ba4b
 
-
 Resources:
 
   LogRole:
@@ -184,7 +183,7 @@ Resources:
                 if [ "${MFA}" == "true" ]; then
                   echo "auth       required     pam_google_authenticator.so nullok" >> /etc/pam.d/sshd
                   sed -e '/auth       substack     password-auth/ s/^#*/#/' -i /etc/pam.d/sshd
-                  sed -e '/ChallengeResponseAuthentication no/ s/^#*/#/' -i /etc/ssh/sshd_config
+                  sed -e '/ChallengeResponseAuthentication no/ s/^#*/#/' -i /etc/pam.d/sshd_config
                   sed -e '/#ChallengeResponseAuthentication yes/s/^#//' -i /etc/ssh/sshd_config
                   echo >> /etc/ssh/sshd_config
                   echo "AuthenticationMethods publickey,keyboard-interactive" >> /etc/ssh/sshd_config
@@ -226,6 +225,8 @@ Resources:
       Tags:
         - Key: Name
           Value: startup-kit-bastion
+      MetadataOptions:
+        HttpTokens: required
     DependsOn: BastionEipAssociation
     CreationPolicy:
       ResourceSignal:
@@ -292,6 +293,10 @@ Resources:
         Threshold: 3
         ComparisonOperator: GreaterThanThreshold
         TreatMissingData: notBreaching
+        OKActions:
+          - !Ref YourSnsTopic
+        AlarmActions:
+          - !Ref YourSnsTopic
 
   # When a user uses a bad private key pair or username
   SshClosedConnectionMetricFilter:
@@ -316,6 +321,23 @@ Resources:
         Threshold: 5
         ComparisonOperator: GreaterThanThreshold
         TreatMissingData: notBreaching
+        OKActions:
+          - !Ref YourSnsTopic
+        AlarmActions:
+          - !Ref YourSnsTopic
+
+  SupportRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 'support.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSSupportAccess
 
 Outputs:
 
@@ -336,5 +358,3 @@ Outputs:
     Value: !GetAtt BastionEip.AllocationId
     Export:
       Name: !Sub "${AWS::StackName}-BastionEIP-AllocationId"
-
-

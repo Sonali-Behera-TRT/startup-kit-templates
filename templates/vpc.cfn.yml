@@ -1,11 +1,7 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: SASKV5N VPC
 
-# This VPC stack should be created first before any other
-# CloudFormation stacks, such as a bastion stack, database
-# stack and application stack
 Parameters:
 
   AvailabilityZone1:
@@ -79,7 +75,6 @@ Conditions:
 
 Mappings:
 
-  # Maps CIDR blocks to VPC and various subnets
   CIDRMap:
     VPC:
       CIDR: 10.50.0.0/16
@@ -200,19 +195,23 @@ Resources:
   ELBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable HTTP/HTTPs ingress
+      GroupDescription: Enable HTTP/HTTPS ingress from restricted addresses
       VpcId: !Ref VPC
       SecurityGroupIngress:
-      - CidrIp: 0.0.0.0/0
-        IpProtocol: tcp
-        ToPort: !Ref ELBIngressPort
-        FromPort: !Ref ELBIngressPort
+        - CidrIp: YOUR_ALLOWED_IP_RANGE
+          IpProtocol: tcp
+          ToPort: 80
+          FromPort: 80
+        - CidrIp: YOUR_ALLOWED_IP_RANGE
+          IpProtocol: tcp
+          ToPort: 443
+          FromPort: 443
       Tags:
       - Key: Name
         Value: !Sub "${AWS::StackName}-ELBSecurityGroup"
 
   ELBSecurityGroupToAppEgress:
-    Type: AWS::EC2::SecurityGroupEgress  # prevent security group circular references
+    Type: AWS::EC2::SecurityGroupEgress
     Properties:
       GroupId: !Ref ELBSecurityGroup
       IpProtocol: tcp
@@ -223,23 +222,24 @@ Resources:
   AppSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable access from ELB to app
+      GroupDescription: Enable access from ELB to app with restricted access
       VpcId: !Ref VPC
       SecurityGroupIngress:
-      - SourceSecurityGroupId: !Ref ELBSecurityGroup
-        IpProtocol: tcp
-        ToPort: !Ref AppIngressPort
-        FromPort: !Ref AppIngressPort
-      - SourceSecurityGroupId: !Ref BastionSecurityGroup
-        IpProtocol: tcp
-        ToPort: 22
-        FromPort: 22
+        - SourceSecurityGroupId: !Ref ELBSecurityGroup
+          IpProtocol: tcp
+          ToPort: !Ref AppIngressPort
+          FromPort: !Ref AppIngressPort
+        - SourceSecurityGroupId: !Ref BastionSecurityGroup
+          IpProtocol: tcp
+          ToPort: 22
+          FromPort: 22
+          CidrIp: YOUR_ALLOWED_IP_RANGE
       Tags:
       - Key: Name
         Value: !Sub "${AWS::StackName}-AppSecurityGroup"
 
   AppSecurityGroupFromELBIngress:
-    Type: AWS::EC2::SecurityGroupIngress  # prevent security group circular references
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !Ref AppSecurityGroup
       IpProtocol: tcp
@@ -248,7 +248,7 @@ Resources:
       SourceSecurityGroupId: !Ref ELBSecurityGroup
 
   AppSecurityGroupFromBastionIngress:
-    Type: AWS::EC2::SecurityGroupIngress  # prevent security group circular references
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !Ref AppSecurityGroup
       IpProtocol: tcp
@@ -259,13 +259,13 @@ Resources:
   BastionSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Enable access to the bastion host
+      GroupDescription: Enable access to the bastion host from limited sources
       VpcId: !Ref VPC
       SecurityGroupIngress:
-      - CidrIp: !Ref SSHFrom
-        IpProtocol: tcp
-        ToPort: 22
-        FromPort: 22
+        - CidrIp: YOUR_ALLOWED_IP_RANGE
+          IpProtocol: tcp
+          ToPort: 22
+          FromPort: 22
       SecurityGroupEgress:
       - CidrIp: 0.0.0.0/0
         IpProtocol: tcp
@@ -284,7 +284,7 @@ Resources:
         Value: !Sub "${AWS::StackName}-BastionSecurityGroup"
 
   BastionSecurityGroupToAppEgress:
-    Type: AWS::EC2::SecurityGroupEgress  # prevent security group circular references
+    Type: AWS::EC2::SecurityGroupEgress
     Properties:
       GroupId: !Ref BastionSecurityGroup
       IpProtocol: tcp
@@ -363,11 +363,6 @@ Resources:
       ToPort: 3306
       FromPort: 3306
       SourceSecurityGroupId: !Ref AppSecurityGroup
-
-  # NAT-related resources
-  #
-  # NAT is used to allow instances in private subnets to communicate with AWS
-  # services, and pull down code and updates.
 
   NatGateway1:
     DependsOn: VPCGatewayAttachment
@@ -451,6 +446,19 @@ Resources:
       SubnetId: !Ref PrivateSubnet2
       RouteTableId: !Ref NatRouteTable2
 
+  VPCFlowLog:
+    Type: AWS::EC2::FlowLog
+    Properties:
+      DeliverLogsPermissionArn: arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_IAM_ROLE_FOR_LOG_DELIVERY
+      LogDestinationType: cloud-watch-logs
+      LogGroupName: your-log-group-name
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: REJECT
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-VPCFlowLog"
+
 Outputs:
 
   Name:
@@ -530,4 +538,3 @@ Outputs:
     Value: !Ref AppIngressPort
     Export:
       Name: !Sub "${AWS::StackName}-AppIngressPort"
-

@@ -1,9 +1,6 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
-
 Description: SASKV5 VPC + Bastion + Fargate
-
 
 Parameters:
 
@@ -378,12 +375,9 @@ Metadata:
       LoadBalancerLatencySeconds:
         default: LB Latency Threshold
 
-
-
 Conditions:
 
    IsProd: !Equals [ !Ref EnvironmentName, prod ]
-
 
 Resources:
 
@@ -444,7 +438,6 @@ Resources:
         LoadBalancerAlarmEvaluationPeriods: !Ref LoadBalancerAlarmEvaluationPeriods
     DependsOn: VpcStack
 
-
 Outputs:
 
   VpcStackName:
@@ -462,3 +455,7 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}-FargateStackName
 
+  CFStackTags:
+    Value: !Ref AWS::StackName
+    Export:
+      Name: !Sub ${AWS::StackName}-CFStackTags

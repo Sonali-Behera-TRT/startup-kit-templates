@@ -1,9 +1,6 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
-
 Description: SASKV5 VPC + Bastion + Fargate + Database + ElastiCache
-
 
 Parameters:
 
@@ -28,7 +25,7 @@ Parameters:
     Type: String
     MinLength: 9
     MaxLength: 18
-    Default: 0.0.0.0/0
+    Default: YOUR_ALLOWED_IP_RANGE
 
   ELBIngressPort:
     Description: The ELB ingress port used by security groups
@@ -804,3 +801,25 @@ Outputs:
     Value: !GetAtt ElastiCacheStack.Outputs.ElastiCacheStackName
     Export:
       Name: !Sub ${AWS::StackName}-ElastiCacheStackName
+
+  EC2InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for EC2 Instances
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ELBIngressPort
+          ToPort: !Ref ELBIngressPort
+          CidrIp: !Ref SSHFrom
+        - IpProtocol: tcp
+          FromPort: !Ref AppIngressPort
+          ToPort: !Ref AppIngressPort
+          CidrIp: !Ref SSHFrom
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref SSHFrom
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: !Ref SSHFrom
