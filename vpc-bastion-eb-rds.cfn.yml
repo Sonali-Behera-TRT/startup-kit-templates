@@ -1,4 +1,3 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
 
@@ -36,8 +35,15 @@ Parameters:
     Description: Limit SSH access to bastion hosts to a CIDR IP block
     Type: String
     MinLength: 9
-    MaxLength: 18
-    Default: 0.0.0.0/0
+    MaxLength: 32
+    Default: YOUR_ALLOWED_IP_RANGE # Must be set by the user
+
+  SSHFromIPv6:
+    Description: Limit SSH access to bastion hosts to an IPv6 CIDR IP block
+    Type: String
+    MinLength: 3
+    MaxLength: 45
+    Default: YOUR_ALLOWED_IPV6_RANGE # Must be set by the user
 
   ELBIngressPort:
     Description: The ELB ingress port used by security groups
@@ -153,7 +159,7 @@ Parameters:
 
   # aurora.cfn.yml and/or db.cfn.yml parameters
   DatabaseUser:
-    Default: startupadmin
+    Default: YOUR_ADMIN_USERNAME # Replace with a user-provided unique value
     Type: String
     Description: Database admin account name
     MinLength: 5
@@ -320,6 +326,7 @@ Metadata:
           - LogRetentionInDays
           - MFA
           - SSHFrom
+          - SSHFromIPv6
       - Label:
           default: Database
         Parameters:
@@ -378,6 +385,8 @@ Metadata:
         default: Multi-Factor
       SSHFrom:
         default: SSH Whitelist
+      SSHFromIPv6:
+        default: SSH Whitelist IPv6
       TemplateBucket:
         default: CloudFormation Bucket
       EnvironmentName:
@@ -534,6 +543,33 @@ Resources:
         AutoScalingMinInstanceCount: !Ref AutoScalingMinInstanceCount
         AutoScalingMaxInstanceCount: !Ref AutoScalingMaxInstanceCount
 
+  SecureSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Secure group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22 # SSH
+          ToPort: 22
+          CidrIp: !Ref SSHFrom
+        - IpProtocol: tcp
+          FromPort: 80 # HTTP
+          ToPort: 80
+          CidrIp: YOUR_ALLOWED_IP_RANGE
+        - IpProtocol: tcp
+          FromPort: 443 # HTTPS
+          ToPort: 443
+          CidrIp: YOUR_ALLOWED_IP_RANGE
+
+  SecureSecurityGroupIPv6:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Secure group for IPv6
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22 # SSH
+          ToPort: 22
+          CidrIpv6: !Ref SSHFromIPv6
 
 Outputs:
 
@@ -569,4 +605,3 @@ Outputs:
     Condition: IsNotAurora
     Export:
       Name: !Sub ${AWS::StackName}-DatabaseStackName
-

@@ -33,6 +33,16 @@ Resources:
           MetricNamespace: STARTUP_KIT/API
           MetricName: LOGIN_LATENCY
 
+  RootUserUsageMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: YOUR_LOG_GROUP_NAME
+      FilterPattern: '{ $.userIdentity.type = "Root" && $.userIdentity.invokedBy NOT EXISTS && $.eventType != "AwsServiceEvent" }'
+      MetricTransformations:
+        - MetricValue: '1'
+          MetricNamespace: LogMetrics
+          MetricName: RootUserUsage
+
   # ALARMS
 
   LoginFailureAlarm:
@@ -50,6 +60,21 @@ Resources:
       Threshold: 10
       ComparisonOperator: GreaterThanThreshold
 
+  RootUserUsageAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm for usage of the root user
+      ActionsEnabled: true
+      AlarmActions:
+        - Ref: StartupKitDevOpsSNSTopic
+      MetricName: RootUserUsage
+      Namespace: LogMetrics
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+
   # NOTIFICATION RESOURCES
 
   StartupKitDevOpsSNSTopic:
@@ -57,5 +82,7 @@ Resources:
     Properties:
       DisplayName: STARTUP_KIT_DEVOPS
       TopicName: STARTUP_KIT_DEVOPS
-
-
+      KmsMasterKeyId: YOUR_KMS_KEY_ID
+      Tags:
+        - Key: YOUR_TAG_KEY
+          Value: YOUR_TAG_VALUE

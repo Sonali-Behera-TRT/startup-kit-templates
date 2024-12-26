@@ -1,9 +1,6 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
-
 Description: SASKV5 VPC + Bastion
-
 
 Parameters:
 
@@ -121,11 +118,9 @@ Metadata:
       SSHFrom:
         default: SSH Whitelist
 
-
 Conditions:
 
    IsProd: !Equals [ !Ref EnvironmentName, prod ]
-
 
 Resources:
 
@@ -140,6 +135,9 @@ Resources:
         ELBIngressPort: !Ref ELBIngressPort
         AppIngressPort: !Ref AppIngressPort
         SingleNatGateway: !If [ IsProd, false, true ]
+      Tags:
+        - Key: TagKey1
+          Value: TagValue1
 
   BastionStack:
     Type: AWS::CloudFormation::Stack
@@ -150,8 +148,10 @@ Resources:
         KeyName: !Ref KeyName
         LogRetentionInDays: !Ref LogRetentionInDays
         MFA: !Ref MFA
+      Tags:
+        - Key: TagKey1
+          Value: TagValue1
     DependsOn: VpcStack
-
 
 Outputs:
 
@@ -164,5 +164,3 @@ Outputs:
     Value: !GetAtt BastionStack.Outputs.Name
     Export:
       Name: !Sub ${AWS::StackName}-BastionStackName
-
-

@@ -1,4 +1,3 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: SASKV5N RDS
@@ -202,6 +201,7 @@ Resources:
     Condition: AlarmsEnabled
     Properties:
       DisplayName: Database Alarm Topic
+      KmsMasterKeyId: YOUR_KMS_KEY_ID
 
   DatabaseSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -232,6 +232,12 @@ Resources:
       MonitoringInterval: !If [ EnhancedMonitoringSupprtedAndEnabled, 60, 0 ]
       MonitoringRoleArn: !If [ EnhancedMonitoringSupprtedAndEnabled, !GetAtt EnhancedMonitoringRole.Arn, !Ref "AWS::NoValue" ]
       CopyTagsToSnapshot: true
+      DeletionProtection: true
+      EnableCloudwatchLogsExports:
+        - postgresql
+      EnableIAMDatabaseAuthentication: true
+      BackupRetentionPeriod: 7
+      AutoMinorVersionUpgrade: true
       Tags:
       - Key: Name
         Value: !Ref AWS::StackName
@@ -342,6 +348,13 @@ Resources:
         - !Ref DatabaseAlarmTopic
     DependsOn: Database
 
+  DatabaseEventSubscription:
+    Type: AWS::RDS::EventSubscription
+    Properties:
+      SnsTopicArn: !Ref DatabaseAlarmTopic
+      SourceType: db-instance
+      EventCategories:
+        - availability
 
 Outputs:
 
@@ -388,4 +401,3 @@ Outputs:
     Value: !GetAtt DatabaseAlarmTopic.TopicName
     Export:
       Name: !Sub ${AWS::StackName}-DatabaseAlarmTopicName
-

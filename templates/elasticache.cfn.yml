@@ -1,4 +1,4 @@
----
+```
 AWSTemplateFormatVersion: 2010-09-09
 
 # A CloudFormation template to create/configure an AWS ElastiCache Cluster based on parameters,
@@ -93,6 +93,7 @@ Resources:
           IpProtocol: tcp
           FromPort: !If [ IsRedis, 6379, 11211]
           ToPort: !If [ IsRedis, 6379, 11211]
+          CidrIp: YOUR_ALLOWED_IP_RANGE
       Tags:
         -
           Key: Name
@@ -120,6 +121,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Ref AWS::StackName
+      SnapshotRetentionLimit: YOUR_RETENTION_LIMIT_VALUE
 
 Outputs:
 
@@ -158,3 +160,4 @@ Outputs:
     Value: !If [ IsRedis, 6379, 11211]
     Export:
       Name: !Sub ${AWS::StackName}-ElastiCachePort
+```

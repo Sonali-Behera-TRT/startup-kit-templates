@@ -1,4 +1,3 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
 Parameters:
@@ -36,6 +35,7 @@ Resources:
   BillingAlarmTopic:
     Type: AWS::SNS::Topic
     Properties:
+      KmsMasterKeyId: YOUR_KMS_KEY_ID
       Subscription:
       - Endpoint: !Ref Email
         Protocol: email

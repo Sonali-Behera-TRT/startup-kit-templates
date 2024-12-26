@@ -1,6 +1,5 @@
----
 AWSTemplateFormatVersion: '2010-09-09'
-Description:  SASKV5N Elastic Beanstalk
+Description: SASKV5N Elastic Beanstalk
 
 # App stack creation prerequisites:  first create a VPC stack, then a DB stack.
 
@@ -140,6 +139,28 @@ Mappings:
       stackName: 64bit Amazon Linux 2018.03 v2.7.3 running Python 3.6
 
 Resources:
+
+  SecureAppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Secure application security group
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: YOUR_ALLOWED_IP_RANGE
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: YOUR_ALLOWED_IP_RANGE
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: YOUR_ALLOWED_IP_RANGE
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: YOUR_ALLOWED_IP_RANGE
 
   ElasticBeanstalkServiceRole:
     Type: AWS::IAM::Role
@@ -336,6 +357,10 @@ Resources:
         OptionName: DeleteOnTerminate
         Value: true
 
+      - Namespace: aws:elasticbeanstalk:healthreporting:system
+        OptionName: SystemType
+        Value: enhanced
+
       # ENVIRONMENT VARIABLES - COMMON TO ALL STACKS
       - Namespace: aws:elasticbeanstalk:application:environment
         OptionName: AWS_REGION
@@ -408,8 +433,10 @@ Resources:
         Statement:
           -
             Effect: Allow
-            Action: "*"
-            Resource: "*"
+            Action:
+              - ec2:YOUR_REQUIRED_EC2_ACTION
+            Resource:
+              - arn:aws:ec2:YOUR_REGION:YOUR_ACCOUNT_ID:YOUR_RESOURCE
 
   AppInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -443,5 +470,3 @@ Outputs:
     Value: !Ref StackType
     Export:
       Name: !Sub "${AWS::StackName}-TypeOfStack"
-
-

@@ -1,24 +1,4 @@
----
 AWSTemplateFormatVersion: 2010-09-09
-
-# A CloudFormation template to create/configure an AWS Fargate Cluster, Application Load Balancer (ALB),
-# Amazon Elastic Container Registry (ECR), AWS CodePipeline and Service based on parameters. Optionally,
-# you can specify a domain name and/or an AWS Certificate Manager ARN can be passed if you want to
-# enable TLS on the ALB. If you want to create the DNS alias to the ALB, your DNS must be hosted in
-# Amazon Route 53.
-#
-# From the Startup Kit Templates, this template requires the name of an existing vpc.cfn.yml stack as
-# a parameter.
-#
-# If you pass the optional database stack name, it pulls the values for the DB endpoint and username
-# and sets them as environment variables in the container.
-#
-# The service creates CloudWatch Alarms to monitor CPU utilization in order to determine container
-# counts (up and down), but other metrics may be more important in your system.
-# See: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/service_autoscaling_tutorial.html
-#
-# This template is released under Apache Version 2.0, and can be forked, copied, modified,
-# customized, etc. to match your application/system requirements.
 
 Description: SASKV5N Fargate
 
@@ -117,7 +97,6 @@ Parameters:
     MaxValue: 30720
     ConstraintDescription: "Value must be between 512 and 30720 - see: https://aws.amazon.com/fargate/pricing/"
 
-  # Scaling params
   DefaultServiceScaleEvaluationPeriods:
     Description: The number of periods over which data is compared to the specified threshold
     Type: Number
@@ -239,6 +218,11 @@ Resources:
 
   CodePipelineArtifactBucket:
     Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
     DeletionPolicy: Delete
 
   CodeBuildServiceRole:
@@ -292,11 +276,6 @@ Resources:
                   - ecr:UploadLayerPart
                   - ecr:CompleteLayerUpload
 
-  # By default, the build specification is defined in this template, but you can also add buildspec.yml
-  # files in your repos to allow for customization.
-  # See:
-  # https://docs.aws.amazon.com/codebuild/latest/userguide/build-spec-ref.html
-  # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-project-source.html
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -393,9 +372,6 @@ Resources:
       - CodePipelineArtifactBucket
       - FargateEcsCluster
 
-  # This CodePipeline is used for CodeCommit repos. It triggers on a commit to the Git branch passed,
-  # builds the Docker image and then deploys the container in the Fargate Cluster. CodePipeline can support N stages.
-  # For example, you may want to add a stage to test your build and/or container.
   CodePipelineCodeCommit:
     Type: AWS::CodePipeline::Pipeline
     Condition: IsCodeCommit
@@ -455,9 +431,6 @@ Resources:
       - CodePipelineServiceRole
       - DefaultFargateService
 
-  # This CodePipeline is used for GitHub based repos. It triggers on a commit to the Git branch passed,
-  # builds the Docker image and then deploys the container in the Fargate Cluster. CodePipeline can support N stages.
-  # For example, you may want to add a stage to test your build and/or container.
   CodePipelineGitHub:
     Type: AWS::CodePipeline::Pipeline
     Condition: IsGitHub
@@ -519,51 +492,49 @@ Resources:
       - CodePipelineServiceRole
       - DefaultFargateService
 
-  # Simple Amazon ECR Lifecycle Policies to try and reduce storage costs
-  # See: https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html
   EcrDockerRepository:
     Type: AWS::ECR::Repository
     Properties:
+      ImageScanningConfiguration:
+        scanOnPush: true
+      ImageTagMutability: IMMUTABLE
       LifecyclePolicy:
-        LifecyclePolicyText: !Sub
-          - |
-            {
-              "rules": [
-                {
-                  "rulePriority": 1,
-                  "description": "Only keep untagged images for ${DaysToRetainUntaggedContainerImages} days",
-                  "selection": {
-                    "tagStatus": "untagged",
-                    "countType": "sinceImagePushed",
-                    "countUnit": "days",
-                    "countNumber": ${DaysToRetainUntaggedContainerImages}
-                  },
-                  "action": { "type": "expire" }
+        LifecyclePolicyText: !Sub |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Only keep untagged images for ${DaysToRetainUntaggedContainerImages} days",
+                "selection": {
+                  "tagStatus": "untagged",
+                  "countType": "sinceImagePushed",
+                  "countUnit": "days",
+                  "countNumber": ${DaysToRetainUntaggedContainerImages}
                 },
-                {
-                  "rulePriority": 2,
-                  "description": "Keep only ${MaxTaggedContainerImagesToRetain} tagged images, expire all others",
-                  "selection": {
-                    "tagStatus": "tagged",
-                    "tagPrefixList": [ "${EnvironmentName}" ],
-                    "countType": "imageCountMoreThan",
-                    "countNumber": ${MaxTaggedContainerImagesToRetain}
-                  },
-                  "action": { "type": "expire" }
-                }
-              ]
-            }
-          - DaysToRetainUntaggedContainerImages: !Ref DaysToRetainUntaggedContainerImages
-            MaxTaggedContainerImagesToRetain: !Ref MaxTaggedContainerImagesToRetain
-            EnvironmentName: !Ref EnvironmentName
+                "action": { "type": "expire" }
+              },
+              {
+                "rulePriority": 2,
+                "description": "Keep only ${MaxTaggedContainerImagesToRetain} tagged images, expire all others",
+                "selection": {
+                  "tagStatus": "tagged",
+                  "tagPrefixList": [ "${EnvironmentName}" ],
+                  "countType": "imageCountMoreThan",
+                  "countNumber": ${MaxTaggedContainerImagesToRetain}
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+        DaysToRetainUntaggedContainerImages: !Ref DaysToRetainUntaggedContainerImages
+        MaxTaggedContainerImagesToRetain: !Ref MaxTaggedContainerImagesToRetain
+        EnvironmentName: !Ref EnvironmentName
 
   FargateEcsCluster:
     Type: AWS::ECS::Cluster
     Properties:
       ClusterName: !Ref AWS::StackName
 
-  # The ALB lives in two public subnets. See the existing vpc.cfn.yml stack
-  # for ELB/ALB and application security groups which define ingress ports.
   ApplicationLoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -592,7 +563,6 @@ Resources:
         DNSName: !GetAtt ApplicationLoadBalancer.DNSName
     DependsOn: ApplicationLoadBalancer
 
-  # The health checks can be further tuned if your requirements differ
   DefaultTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -623,7 +593,6 @@ Resources:
         Value: !Ref EnvironmentName
     DependsOn: ApplicationLoadBalancer
 
-  # The namespace in Amazon CloudWatch Logs - see https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CloudWatchLogsConcepts.html
   DefaultLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -683,10 +652,6 @@ Resources:
           PortMappings:
             - ContainerPort:
                 Fn::ImportValue: !Sub ${NetworkStackName}-AppIngressPort
-
-          # Environment variables can be customized by adding parameters/values below. Secrets
-          # should be stored in AWS Systems Manager Parameter Store.
-          # See: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html
           Environment:
             - Name: BUCKET_NAME
               Value: !Ref DefaultContainerBucket
@@ -704,6 +669,7 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-group: !Ref DefaultLogGroup
               awslogs-stream-prefix: !Ref GitSourceRepo
+          ReadonlyRootFilesystem: true
     DependsOn:
       - DefaultContainerBucket
       - DefaultLogGroup
@@ -995,4 +961,3 @@ Outputs:
     Value: !GetAtt CodePipelineArtifactBucket.Arn
     Export:
       Name: !Sub ${AWS::StackName}-CodePipelineArtifactBucketArn
-

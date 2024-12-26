@@ -1,4 +1,3 @@
----
 AWSTemplateFormatVersion: 2010-09-09
 
 # A CloudFormation template to deploy an additional service to Fargate. This requires an existing
@@ -501,6 +500,9 @@ Resources:
   EcrDockerRepository:
     Type: AWS::ECR::Repository
     Properties:
+      ImageScanningConfiguration:
+        scanOnPush: true
+      ImageTagMutability: IMMUTABLE
       LifecyclePolicy:
         LifecyclePolicyText: !Sub
           - |
@@ -585,10 +587,6 @@ Resources:
           PortMappings:
             - ContainerPort:
                 Fn::ImportValue: !Sub ${NetworkStackName}-AppIngressPort
-
-          # Environment variables can be customized by adding parameters/values below. Secrets
-          # should be stored in AWS Systems Manager Parameter Store.
-          # See: https://docs.aws.amazon.com/systems-manager/latest/userguide/systems-manager-paramstore.html
           Environment:
             - Name: ENVIRONMENT_NAME
               Value: !Ref EnvironmentName
@@ -605,6 +603,7 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-group: !Ref LogGroup
               awslogs-stream-prefix: !Ref GitSourceRepo
+          ReadonlyRootFilesystem: true
     DependsOn:
       - LogGroup
       - TaskExecutionRole
@@ -878,5 +877,3 @@ Outputs:
     Value: !GetAtt CodePipelineArtifactBucket.Arn
     Export:
       Name: !Sub ${AWS::StackName}-CodePipelineArtifactBucketArn
-
-
